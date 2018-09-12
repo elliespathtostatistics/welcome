@@ -1,0 +1,101 @@
+import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_selection import chi2
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import normalize
+from sklearn.linear_model import RidgeClassifierCV
+
+import numpy as np
+
+cwd = os.getcwd()
+df = pdf.read_csv('label_master')
+predict_df = pd.read_csv('Wk34_35_process.csv')
+
+from io import StringIO
+col = ['Product', 'token_cat']
+col_predict = ['token_cat']
+
+category_id_df = df[['Product', 'Category_id']].drop_duplicates().sort_values('Category_id')
+
+category_to_id = dict(category_id_df.values)
+
+category_to_id
+
+id_to_category = dict(category_id_df[['Category_id', 'Product']].values)
+
+tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, encoding='latin-1', ngram_range=(1, 2), stop_words='english')
+
+features = tfidf.fit_transform(df.token_cat).toarray()
+
+bow_transform=CountVectorizer()
+
+features_bow = bow_transform.fit_transform(df.token_cat).toarray()
+
+labels = df.Category_id
+
+N = 2 
+for Product, category_id in sorted(category_to_id.items()):
+  features_chi2 = chi2(features, labels==category_id)
+  indices = np.argsort(features_chi2[0])
+  feature_names = np.array(tfidf.get_feature_names())[indices]
+  unigrams = [v for v in feature_names if len(v.split(' ')) ==1]
+  bigrams = [v for v in feature_names if len(v.split(' ')) ==2]
+  print('#', Product)
+  print("unigrams:\n. {}".format('\n.'.join(unigrams[-N:])))
+  
+X_train, X_test, y_train, y_test = train_test_split(df['token_cat'], df['Product'], random_state = 0)
+
+count_vect = CountVectorizer()
+X_train_counts = count_vect.fit_transform(X_train)
+
+tfidf_transformer = TfidfTransformer()
+X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+
+clf = RidgeClassifierCV().fit(X_train_tfidf, y_train)
+print(sklearn.__version__)
+
+print(clf.predict(count_vect.transform(["transfom me apple"])))
+
+
+
+from sklearn.linear_model import LogisticRegression, RidgeClassifierCV
+
+models = [LinearSVC(multi_class="crammer_singer"),
+RidgeClassifierCV(), 
+]
+
+CV=5
+cv_df = pd.DataFrame(index = range(CV*len(models)))
+entries = []
+for model in models:
+  model_name = model.__class__.__name__
+  accuracies = cross_val_score(model, features, labels, scoring = 'accuracy', cv=CV)
+  for fold_idx, accuracy in enumerate(accuracies):
+    entries.append((model_name, fold_idx, accuracy))
+cv_df = pd.DataFrame(entries, ['model_name', 'fold_idx', 'accuracy'])
+
+cv_df.groupby('model2_name').accuracy.mean()
+
+model = RidgeClassifierCV()
+
+X_train, X_test, y_train, y_test, indices_train, indices_test = train_test_split(features, labels, df.index, random_state = 0)
+
+from sklearn import metrics
+print(metrics.classification_report(y_test, y_pred, target_names=df['Product'].unique()))
+
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.externals import joblib
+
+pipe = make_pipeline(tfidf, model)
+joblib.dump(pipe, 'model_logistic.pkl')
+pipe.fit(df.token_cat, df['Product])
+y_pred_test = pipe.predict(predict_df.token_cat)
+
+import numpy
+export_df = pd.DataFrame(y_pred_test)
+export_df.to_csv('predicted')
